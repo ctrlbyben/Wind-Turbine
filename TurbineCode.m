@@ -1,31 +1,35 @@
-%% Wind Turbine %%
+%% ME5053 PROJECT 2
+%Wind Turbine Analysis
+%Ben Lahyani, Simon Granberg, Austin Gage
+
 clear; clc; close all;
 
-% Load values in
+%% LOAD DATA
 
 turbine.profData = readtable("BladeProfile.csv");
 turbine.DU91_W2_250 = readtable("DU91-W2-250.csv");
 turbine.DU93_W_210 = readtable("DU93-W-210.csv");
 turbine.DU96_W_180 = readtable("DU96-W-180.csv");
 turbine.DU97_W_300 = readtable("DU97-W-300.csv");
+turbine.towerSpecs = readtable("towerSpecs.csv", VariableNamingRule="preserve"); 
 
-
-%% Constants 
+%% CONSTANTS
 parameters.rho_air = 1.1;         % Air density [kg/m^3]
 parameters.g = 9.81;                % Gravity [m/s^2]
 parameters.mu_air = 1.8 * 10^-5;     % [Ns/m^2]
+parameters.rho_steel = 7850;      %steel density kg/m^3
+parameters.TS_steel = 450; %tensile strength of steel, MPa
+parameters.sigmaY_steel = 345;   %yield strength of steel, MPa
+parameters.E_steel = 200; %youngs modulus of steel, GPa
 
 turbine.alpha = 1/3;                %axial induction factor
 turbine.nBlades = 3;
-turbine.R = max(turbine.profData.DistanceFromCenterOfRotation)/1000; %radius in M
+turbine.R = 48 ; %radius in M
 turbine.SweptArea = pi * turbine.R^2;            % Rotor swept area [m^2]
 turbine.maxRPM = 15.5; %max turbine speed, RPM
 turbine.minRPM = 9.6; %min turbine RPM
-
-%turbine.P = 2.5e6;               % Rated power [W]
-%turbine.R = 48;                  % Rotor radius [m]
-%turbine.A = pi * (max(R))^2;            % Rotor swept area [m^2]
-%turbine.H = 80.4;                % Hub height [m]
+turbine.P = 2.5e6;               % Rated power [W]
+turbine.H = 80.4;                % Hub height [m]
 
 
 
@@ -46,25 +50,67 @@ r = linspace(min(turbine.profData{:,"DistanceFromCenterOfRotation"}),...
 % code
 
 %Calculate AoA, Relative wind Speed, relative wind angle. -----------------ONLY FOR PLOT Remove for Final 
-[AoA, Urel, windRelAngle] = calcAoA(r, turbine);
+[Q1.AoA, Q1.Urel, Q1.windRelAngle] = calcAoA(r, turbine);
 
 %Calculate Section Twist Angle --------------------------------------------ONLY FOR PLOT Remove for Final 
-twist = calcTwist(r, turbine);
+Q1.twist = calcTwist(r, turbine);
 
 %Calculate Cd, Cl ---------------------------------------------------------ONLY FOR PLOT Remove for Final 
-[Cd, Cl] = calcCoef(r, turbine, parameters);
+[Q1.Cd, Q1.Cl] = calcCoef(r, turbine, parameters);
 
 %Calculate the Loads on one blade -----------------------------------------ONLY FOR PLOT Remove for Final 
-[fTheta, fZ, Lift, Drag] = calcForces(r, turbine, parameters);
+[Q1.fTheta, Q1.fZ, Q1.Lift, Q1.Drag] = calcForces(r, turbine, parameters);
 
 %calculate the power [W] and Thrust Load [N] ------------------------------ONLY FOR PLOT Remove for Final 
-[Power, Thrust] = calcPower(r, turbine, parameters);
+[Q1.Power, Q1.Thrust] = calcPower(r, turbine, parameters);
 
 %Calculate Cp and Ct
 [Q1.C_p, Q1.C_t] = calcCpCt(r, turbine, parameters);
 
 fprintf("Deliverable 1: \nThe Coefficient of Power is: %.4f \n"  + ...
     "The Coefficient of Thrust is: %.4f \n \n", Q1.C_p, Q1.C_t);
+
+% ----------------Sanity Check Plots-------------------------------------- REMOVE FOR FINAL REPORT
+figure(4)
+% --- Subplot 1: Aerodynamic Coefficients ---
+subplot(3,1,1)
+hold on
+plot(r, Q1.Cl, 'b', 'LineWidth', 1.4)
+plot(r, Q1.Cd, 'g', 'LineWidth', 1.4)
+hold off
+xlabel('Distance from Center of Rotation [m]')
+ylabel('Coefficient Value')
+title('Aerodynamic Coefficients Along Blade Span')
+legend('C_L','C_D','Location','best')
+grid on
+
+% --- Subplot 2: Angles ---
+subplot(3,1,2)
+hold on
+plot(r, Q1.windRelAngle, '-b', 'LineWidth', 1.4)
+plot(r, Q1.twist, '-r', 'LineWidth', 1.4)
+plot(r, Q1.AoA, '-g', 'LineWidth', 1.4)
+hold off
+xlabel('Distance from Center of Rotation [m]')
+ylabel('Angle [deg]')
+title('Flow Angles Along Blade Span')
+legend('\phi (flow angle)','\theta (twist)','\alpha (AoA)','Location','best')
+grid on
+
+% --- Subplot 3: Forces ---
+subplot(3,1,3)
+hold on
+plot(r, Q1.Lift, '-b', 'LineWidth', 1.4)
+plot(r, Q1.Drag, '-r', 'LineWidth', 1.4)
+plot(r, Q1.fZ, '-g', 'LineWidth', 1.4)
+plot(r, Q1.fTheta, '-c', 'LineWidth', 1.4)
+hold off
+xlabel('Distance from Center of Rotation [m]')
+ylabel('Load [N/m]')
+title('Aerodynamic Loads Along Blade Span')
+legend('Lift','Drag','F_z','F_\Theta')
+grid on
+
 
 %% DELIVERABLE 2
 % Team 24 Specific Parameters:
@@ -82,8 +128,8 @@ Q2.CpSweep = zeros(1, length(Q2.pitchSweep)); %preallocate Cp vector
 
 for ii = 1:length(Q2.pitchSweep)
     turbine.pitch = Q2.pitchSweep(ii);
-    [C_p, ~] = calcCpCt(r, turbine, parameters);
-    Q2.CpSweep(ii) = C_p;
+    [Q2.C_p, ~] = calcCpCt(r, turbine, parameters);
+    Q2.CpSweep(ii) = Q2.C_p;
 end
 
 %Plot Cp vs. Pitch Angle
@@ -121,17 +167,17 @@ for ii = 1:length(Q3.pitchSweep)
     turbine.pitch = Q3.pitchSweep(ii);
     for jj = 1:length(Q3.tpRatioSweep)
         %get tip speed ratio for this iteration
-        currentTipSpeedRatio = Q3.tpRatioSweep(jj);
+        Q3.currentTipSpeedRatio = Q3.tpRatioSweep(jj);
 
         %calculate rotational speed, rad/s
-        currentW = currentTipSpeedRatio * Q3.U / turbine.R;
+        Q3.currentW = Q3.currentTipSpeedRatio * Q3.U / turbine.R;
 
         %set rotational speed in turbine struct for this iteration
-        turbine.W = currentW;
-        [Cp, ~] = calcCpCt(r, turbine, parameters);
+        turbine.W = Q3.currentW;
+        [Q3.Cp, ~] = calcCpCt(r, turbine, parameters);
 
         %store value of Cp in array
-        Q3.CpArray(ii,jj) = Cp;
+        Q3.CpArray(ii,jj) = Q3.Cp;
     end
 end
 
@@ -141,7 +187,7 @@ xlabel("Tip Ratio [-]")
 ylabel("Pitch Angle [deg]")
 zlabel("C_p");
 
-%% Deliverable 4:
+%% DELIVERABLE 4
 %Team 24 Specific Parameters:
 Q4.U = 14; %wind speed, m/s for deliverable 4
 Q4.W = turbine.maxRPM * 2*pi/60;
@@ -177,52 +223,83 @@ ylabel("Power Output");
 %the pitch angle that produces rated power. Plot the power vs. wind speed
 
 
-%% DELIVERABLE 5:
+%% DELIVERABLE 5
 %Tower Analysis: 
+% Steps: create vector for height positions (h). Then determine wind speed
+% at every h. Determine reynolds # for every h, then calculate Cd for each
+% h. Determine tower diameter for each h, then calculate drag load (N/m).
+% Calculate total thrust load of wind turbine, and assign that to a
+% distributed load at the top of the beam. Then, calculate the EI for every
+% height (use near infinity for nacelle). 
+Q5.h_interval = 0.5;
+Q5.U = Q4.U; %use same wind speed as deliverable 4
+Q5.W = Q4.W; %use same max RPM as deliverable 4
+Q5.pitch = -0.5; %-------------------------------------------------------------------%REPLACE ME ONCE PITCH ANGLE FOR DELIVERABLE 4 IS FOUND
+
+%update struct
+turbine.U = Q5.U;
+turbine.W = Q5.W;
+turbine.pitch = Q5.pitch;
+
+nacelleBottom = (max(turbine.towerSpecs{:,"Height (mm)"})/1000); %determine height of bottom of nacelle
+nacelleHeight = 2* (turbine.H - nacelleBottom); %calculate height of nacelle portion
+h = linspace(0, (nacelleBottom+nacelleHeight), nPoints);
+
+
+Q5.windSpeeds = calcWind(h(h<=nacelleBottom), turbine); %calculate wind speed in m/s
+
+Q5.dia = calcTowerDia(h(h<=nacelleBottom), turbine); %calculate diameters along tower h
+
+Q5.Re = parameters.rho_air .* Q5.windSpeeds .* Q5.dia / parameters.mu_air; %calculate Re along tower h
+
+Q5.Cd = calcTowerCd(h(h<=nacelleBottom), turbine, parameters); %determine drag coef along tower portion
+
+Q5.TowerDrag = calcTowerDrag(h(h<=nacelleBottom), turbine, parameters); %determine drag force along tower portion
 
 
 
+%add thrust load as distributed load in nacelle portion of h
+arrayLength = length(h)-length(Q5.TowerDrag);
+[~,Q5.thrustLoad] = calcPower(r, turbine, parameters);
+thrustMag = Q5.thrustLoad / nacelleHeight; %determine magnitude of distributed load on nacelle
+thrustArray = ones(1,arrayLength) .* thrustMag; %create array for distributed load
+TotalTowerDrag = [Q5.TowerDrag, thrustArray];
 
-%% ----------------Sanity Check Plots-------------------------------------- REMOVE FOR FINAL REPORT
-figure(4)
-% --- Subplot 1: Aerodynamic Coefficients ---
-subplot(3,1,1)
-hold on
-plot(r, Cl, 'b', 'LineWidth', 1.4)
-plot(r, Cd, 'g', 'LineWidth', 1.4)
-hold off
-xlabel('Distance from Center of Rotation [m]')
-ylabel('Coefficient Value')
-title('Aerodynamic Coefficients Along Blade Span')
-legend('C_L','C_D','Location','best')
-grid on
+%calculate EI vector for every h
+% NEXT STEPS: use function that calculates EI when in the tower portion,
+% and hardcodes a very high value for EI when in the nacelle portion. Will
+% need a function to determine wall thickness as well for the EI function. 
 
-% --- Subplot 2: Angles ---
-subplot(3,1,2)
-hold on
-plot(r, windRelAngle, '-b', 'LineWidth', 1.4)
-plot(r, twist, '-r', 'LineWidth', 1.4)
-plot(r, AoA, '-g', 'LineWidth', 1.4)
-hold off
-xlabel('Distance from Center of Rotation [m]')
-ylabel('Angle [deg]')
-title('Flow Angles Along Blade Span')
-legend('\phi (flow angle)','\theta (twist)','\alpha (AoA)','Location','best')
-grid on
 
-% --- Subplot 3: Forces ---
-subplot(3,1,3)
-hold on
-plot(r, Lift, '-b', 'LineWidth', 1.4)
-plot(r, Drag, '-r', 'LineWidth', 1.4)
-plot(r, fZ, '-g', 'LineWidth', 1.4)
-plot(r, fTheta, '-c', 'LineWidth', 1.4)
-hold off
-xlabel('Distance from Center of Rotation [m]')
-ylabel('Load [N/m]')
-title('Aerodynamic Loads Along Blade Span')
-legend('Lift','Drag','F_z','F_\Theta')
-grid on
+
+%--------Sanity Check Plots Deliverable 5-----------
+figure(5) 
+subplot(5,1,1)
+plot(h(h<=nacelleBottom),Q5.windSpeeds)
+xlabel("Height [m]")
+ylabel("Wind Speed [m/s]")
+
+subplot(5,1,2)
+plot(h(h<=nacelleBottom),Q5.dia)
+xlabel("Height [m]")
+ylabel("Tower Diameter [m]")
+
+subplot(5,1,3)
+plot(h(h<=nacelleBottom),Q5.Re)
+xlabel("Height [m]")
+ylabel("Reynolds Number")
+
+subplot(5,1,4)
+plot(h(h<=nacelleBottom), Q5.Cd)
+xlabel("Height")
+ylabel("C_d")
+
+subplot(5,1,5)
+plot(h, TotalTowerDrag)
+xlabel("Height")
+ylabel("Distributed Load [N/m]")
+
+
 
 
 
@@ -390,4 +467,49 @@ function [C_p, C_t] = calcCpCt(r, turbine, parameters)
         * turbine.SweptArea);
     C_t = Thrust / (1/2 * parameters.rho_air * turbine.U^2 ...
         * turbine.SweptArea);
+end
+
+%% Calculate wind speed for every h along tower section
+function windSpeed = calcWind(h, turbine)
+    refSpeed = turbine.U; %reference wind speed, m/s
+    refHeight = turbine.H; %reference height (hub height)
+
+    windSpeed = refSpeed .* (h./refHeight).^(1/7);
+end
+
+%% Calculate Tower Diameter for every h along tower section
+function towerDia = calcTowerDia(h, turbine)
+    heights = h*1000; %convert h vector to mm
+    heightData = turbine.towerSpecs.("Height (mm)");
+    diaData = turbine.towerSpecs.("OD (mm)");
+    towerDia = interp1(heightData, diaData, heights)./1000; %return dia in meters
+end
+
+%% Calculate Tower CD for every h along tower section
+function Cd = calcTowerCd(h, turbine, parameters)
+    windSpeeds = calcWind(h, turbine); %calculate wind speed in m/s
+
+    dia = calcTowerDia(h, turbine); %calculate diameters along tower h
+
+    Re = parameters.rho_air .* windSpeeds .*dia / parameters.mu_air; %calculate Re along tower h
+
+    Cd = cylinderCD(Re); %calculate Cd
+end
+
+%% Calculate Tower Drag Load
+function towerDrag = calcTowerDrag(h, turbine, parameters)
+    %get Cd, diameter, wind speed for all h
+    Cd = calcTowerCd(h, turbine, parameters);
+    towerDia = calcTowerDia(h, turbine);
+    windSpeeds = calcWind(h, turbine);
+    
+    %calculate drag load [n/m] on tower for all h
+    towerDrag = 0.5 * parameters.rho_air .* windSpeeds.^2 .* Cd .* towerDia;
+
+
+end
+
+%% Calculate EI for all H
+function EI = calcEI(h, turbine, parameters)
+
 end
