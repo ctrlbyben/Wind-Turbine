@@ -19,6 +19,8 @@ turbine.alpha = 1/3;                %axial induction factor
 turbine.nBlades = 3;
 turbine.R = max(turbine.profData.DistanceFromCenterOfRotation)/1000; %radius in M
 turbine.SweptArea = pi * turbine.R^2;            % Rotor swept area [m^2]
+turbine.maxRPM = 15.5; %max turbine speed, RPM
+turbine.minRPM = 9.6; %min turbine RPM
 
 %turbine.P = 2.5e6;               % Rated power [W]
 %turbine.R = 48;                  % Rotor radius [m]
@@ -31,7 +33,7 @@ turbine.SweptArea = pi * turbine.R^2;            % Rotor swept area [m^2]
 %% DELIVERABLE 1
 
 %%Analysis Parameters
-nPoints = 1001; %number of discrete points for blade analysis
+nPoints = 101; %number of discrete points for blade analysis
 turbine.pitch = 0;   %pitch = 0 deg for first deliverable
 turbine.U = 10;      %wind speed = 10m/s for first deliverable
 turbine.W = 14*2*pi/60;      %Rad/s, for first deliverable
@@ -102,8 +104,10 @@ fprintf("Deliverable 2: \nThe maximum C_p for a Wind Speed of %.2f [m/s]" + ...
 %% DELIVERABLE 3
 %Team 24 Specific Parameters:
 Q3.U = 5; %Deliverable 3 wind speed, [m/s]
-Q3.pitchSweep = linspace(-180,180, 100); %sweep range of pitch
-Q3.tpRatioSweep = linspace(0, 70, 40); %sweep range of tip speed ratio
+Q3.pitchSweep = linspace(-25 ,40, 20); %sweep range of pitch
+Q3.minTPSPD = turbine.minRPM*2*pi / 60 * turbine.R / Q3.U; %calculate the min tip speed ratio from the min turbine RPM
+Q3.maxTPSPD = turbine.maxRPM*2*pi / 60 * turbine.R / Q3.U; %calculate the max tip speed ratio
+Q3.tpRatioSweep = linspace(Q3.minTPSPD, Q3.maxTPSPD, 20); %sweep range of tip speed ratio 
 
 %Update Turbine Struct:
 turbine.U = Q3.U;
@@ -138,12 +142,49 @@ ylabel("Pitch Angle [deg]")
 zlabel("C_p");
 
 %% Deliverable 4:
+%Team 24 Specific Parameters:
+Q4.U = 14; %wind speed, m/s for deliverable 4
+Q4.W = turbine.maxRPM * 2*pi/60;
+
+%update turbine struct with new data
+turbine.U = Q4.U;
+turbine.W = Q4.W;
+
+%set up sweep
+Q4.pitchsweep = linspace(-20, 25, 100);
+
+Q4.power = zeros([1, length(Q4.pitchsweep)]);%preallocate
+
+for ii = 1:length(Q4.pitchsweep)
+    %update pitch value
+    turbine.pitch = Q4.pitchsweep(ii);
+
+    %calculate power
+    [Q4.power(ii), ~] = calcPower(r, turbine, parameters);
+    
+end
+
+figure(3)
+plot(Q4.pitchsweep, Q4.power);
+
+xlabel("Pitch Angle");
+ylabel("Power Output");
+
+
+
+%notes: sweep the pitch angle for the given U above, and the max rotational
+%speed which is 15.5RPM. Calculate the power for each pitch angle, and find
+%the pitch angle that produces rated power. Plot the power vs. wind speed
+
+
+%% DELIVERABLE 5:
+%Tower Analysis: 
 
 
 
 
 %% ----------------Sanity Check Plots-------------------------------------- REMOVE FOR FINAL REPORT
-figure(3)
+figure(4)
 % --- Subplot 1: Aerodynamic Coefficients ---
 subplot(3,1,1)
 hold on
@@ -333,9 +374,9 @@ function [Power, Thrust] = calcPower(r, turbine, parameters)
     
     d_Torque = fTheta .* r;
     Torque = trapz(r, d_Torque);
-    Power = 3* Torque * turbine.W; 
+    Power = turbine.nBlades* Torque * turbine.W; 
 
-    Thrust = 3* trapz(r, fZ);
+    Thrust = turbine.nBlades* trapz(r, fZ);
 
     
 end
