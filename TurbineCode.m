@@ -243,7 +243,7 @@ turbine.pitch = Q5.pitch;
 
 nacelleBottom = (max(turbine.towerSpecs{:,"Height (mm)"})/1000); %determine height of bottom of nacelle
 nacelleHeight = 2* (turbine.H - nacelleBottom); %calculate height of nacelle portion
-h = linspace(0, (nacelleBottom+nacelleHeight), nPoints);
+h = linspace(0.000001, (nacelleBottom+nacelleHeight), nPoints);
 
 
 Q5.windSpeeds = calcWind(h(h<=nacelleBottom), turbine); %calculate wind speed in m/s
@@ -255,6 +255,8 @@ Q5.Re = parameters.rho_air .* Q5.windSpeeds .* Q5.dia / parameters.mu_air; %calc
 Q5.Cd = calcTowerCd(h(h<=nacelleBottom), turbine, parameters); %determine drag coef along tower portion
 
 Q5.TowerDrag = calcTowerDrag(h(h<=nacelleBottom), turbine, parameters); %determine drag force along tower portion
+
+[Q5.EI, Q5.I]=calcEI(h, turbine, parameters); % determine EI and I values for deflection and bending stress analysis
 
 
 
@@ -269,6 +271,64 @@ TotalTowerDrag = [Q5.TowerDrag, thrustArray];
 % NEXT STEPS: use function that calculates EI when in the tower portion,
 % and hardcodes a very high value for EI when in the nacelle portion. Will
 % need a function to determine wall thickness as well for the EI function. 
+%EI DONE (I think, it ends a little short but at the same place as the
+%others
+
+%Find Shear as a function of h, dV/dx=-q -> V=-q*x+C1
+%Initial condition of shear is the sum of all acting forces (Drag+Thrust)
+Q5.initialV=trapz(TotalTowerDrag);
+
+%Now shear as a function of h, each value is the internal shear at H
+Q5.V=cumtrapz(-TotalTowerDrag)+Q5.initialV;
+
+%Find Moment as a function h, dM/dx=V -> M=V*x+C1*x+C2
+%initial condition of moment is sum of all individual moments
+Q5.initialM=trapz(Q5.V.*h);
+
+%Now M as a function of h (cant just multiply v by x, not the same as
+%                                                       integration)
+Q5.M= cumtrapz(0.5*-TotalTowerDrag.*h.^2+Q5.initialV.*h+Q5.initialM);
+
+%Now can calculate bending stress at each point sigma=M*0.5*OD/I
+
+Q5.sigmaBend = (Q5.M.*calcTowerDia(h, turbine)*0.5)./Q5.I;
+Q5.sigmaMax=max(Q5.sigmaBend);
+
+
+%%Fatigue analysis at our windspeed 
+% sigmaMax is sigmamax in primary direction (northwest) lec example 315dg
+% sigmaMin is sigmamax in sec direction (use south or SE) lec uses 150 dg
+% Will use 165 angle (315-150)
+Q5.sigmaAngle= deg2rad(165);
+
+Q5.sigmaMin= Q5.sigmaMax*cos(Q5.sigmaAngle);
+
+Q5.sigmaMean= (Q5.sigmaMax+Q5.sigmaMin)/2;
+Q5.sigmaAlt= (Q5.sigmaMax-Q5.sigmaMin)/2;
+
+%Construct Goodman Diagram
+%Correction Factors (From lecture)
+%Cl=1
+%Cg=0.9
+%Cs=0.7
+Q5.fatigueLimit= 0.5*parameters.TS_steel*10^6*0.9*0.7;
+
+%Make vector to plot goodman line against and plot with load case
+x=linspace(0, 450*10^6, 100);
+
+Q5.GoodmanLine=(-Q5.fatigueLimit/(parameters.TS_steel*10^6))*x +Q5.fatigueLimit;
+
+figure(7)
+plot(x, Q5.GoodmanLine);
+%%UNCOMMENT TO PLOT MARKER
+%plot(Q5.sigmaMean, Q5.sigmaAlt, Marker="x", MarkerSize=8)
+
+
+
+
+
+
+
 
 
 
@@ -300,6 +360,32 @@ xlabel("Height")
 ylabel("Distributed Load [N/m]")
 
 
+%EI Sanity Check
+
+    
+figure(6)
+subplot(4,1,1)
+plot(h, Q5.EI)
+xlabel("height")
+ylabel("EI")
+
+% V sanity check
+subplot(4,1,2)
+plot(h, Q5.V)
+xlabel("height")
+ylabel("V(x)")
+
+%M sanity Check
+subplot(4,1,3)
+plot(h, Q5.M)
+xlabel("height")
+ylabel("moment")
+
+%Bending Stress sanity check
+subplot(4,1,4)
+plot(h, Q5.sigmaBend)
+xlabel("height")
+ylabel("Bending Stress")
 
 
 
@@ -510,6 +596,22 @@ function towerDrag = calcTowerDrag(h, turbine, parameters)
 end
 
 %% Calculate EI for all H
-function EI = calcEI(h, turbine, parameters)
+function [EI, I] = calcEI(h, turbine, parameters)
+
+E=parameters.E_steel*10^9;
+heights=h*1000;
+heightData =turbine.towerSpecs.("Height (mm)");
+tdata=turbine.towerSpecs.("Wall thk (mm)");
+
+%Pull Outer Diameters
+diamData= calcTowerDia(h, turbine); %in meters
+radData=diamData./2; %in meters
+
+thickness= interp1(heightData, tdata, heights)./1000;
+innerRads=radData - thickness;%meters
+
+I=(pi/4)*(radData.^4-innerRads.^4); %m^4
+
+EI=E.*I;
 
 end
