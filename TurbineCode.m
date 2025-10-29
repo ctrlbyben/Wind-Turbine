@@ -20,7 +20,7 @@ param.g = 9.81;                      % Gravity [m/s^2]
 param.mu_air = 1.8 * 10^-5;          % Air Dynamic Viscosity [Ns/m^2]
 param.rho_steel = 7850;              % steel density [kg/m^3]
 param.TS_steel = 450;                % tensile strength of steel [MPa]
-param.sigmaY_steel = 345;            % yield strength of steel [MPa]
+param.steelYield = 345;            % yield strength of steel [MPa]
 param.E_steel = 200;                 % youngs modulus of steel  [GPa]
 param.Cl = 1;                        % fatigue loading factor
 param.Cg = 0.9;                      % fatigue gradient factor
@@ -49,7 +49,7 @@ turbine.nacelleH = 2*(turbine.hubH - ...  % Height of nacelle [m]
 %% DELIVERABLE 1:
 
 %Number of discrete points for blade analysis
-nPoints = 300;
+nPoints = 101;
 
 %Generate vector of radial distances r along blade
 r = linspace(turbine.hubR, turbine.R, nPoints);
@@ -289,49 +289,63 @@ Q5.maxDeflection = max(abs(Q5.delta(h<=turbine.towerH)));
 %calculate stress in tower portion
 Q5.towerStress = calcTowerStress(h,r, turbine, param);
 
+%calculate max stress in tower
+Q5.maxStress = max(Q5.towerStress);
+
+%calculate safety factor against yielding
+Q5.SF = param.steelYield * 10^6 / Q5.maxStress;
+
 %calculate safety factor against fatigue failure
 Q5.fatigueSF = calcFatigueSF(h,r,turbine,param);
 
-
-% % % % I = calcI(h, turbine);
-% % % % t = calcTowerT(h(h<=turbine.towerH), turbine);
-% % % % figure(6)
-% % % % plot(h(h<=turbine.towerH), I(h<=turbine.towerH))
-% % % % figure(7)
-% % % % hold on
-% % % % plot(h(h<=turbine.towerH), t)
-% % % % plot(turbine.towerSpecs.("Height (mm)")/1000, turbine.towerSpecs.("Wall thk (mm)")/1000);
-
-
 % --- DELIVERABLE 5 PLOTS ---
-hTower = h(h<=turbine.towerH);
+
+%generate data for goodman plot:
+[Q5.sigmaMean, Q5.sigmaAlt] = calcFatigueS(h,r,turbine,param);
+Q5.sigma_e = 0.5*param.TS_steel*param.Cg*param.Cl*param.Cs;
 
 figure(5)
-subplot(5,1,1)
+hold on
+plot(Q5.sigmaMean/10^6, Q5.sigmaAlt/10^6, 'o');
+plot([0,param.TS_steel], [Q5.sigma_e, 0])
+xlabel("\sigma_m")
+ylabel("\sigma_{alt}")
+
+
+
+
+hTower = h(h<=turbine.towerH);
+
+figure(6)
+subplot(6,1,1)
 plot(hTower, Q5.q(h<=turbine.towerH))
 xlabel("Height [m]")
 ylabel("q [N/m]")
 
-subplot(5,1,2)
+subplot(6,1,2)
 plot(hTower, Q5.v(h<=turbine.towerH));
 xlabel("Height [m]")
 ylabel("Shear Force, [N]");
 
-subplot(5,1,3)
+subplot(6,1,3)
 plot(hTower, Q5.m(h<=turbine.towerH));
 xlabel("Height [m]")
 ylabel("Bending Moment, [N*m]");
 
-subplot(5,1,4)
+subplot(6,1,4)
 plot(hTower, Q5.theta(h<=turbine.towerH));
 xlabel("Height [m]")
 ylabel("Deflection Angle, [rad]")
 
-subplot(5,1,5)
+subplot(6,1,5)
 plot(hTower, Q5.delta(h<=turbine.towerH));
 xlabel("Height [m]")
 ylabel("Deflection [m]")
 
+subplot(6,1,6)
+plot(hTower, Q5.towerStress)
+xlabel("Height [m]")
+ylabel("Stress [Pa]")
 
 
 
@@ -644,7 +658,7 @@ function [q,v,m,theta,delta] = calcBendingAnalysis(h, r, turbine, param)
     m = cumtrapz(h,v)-initialM;
 
     %calculate deflection angle along h
-    theta = cumtrapz(h, m) ./EI;
+    theta = cumtrapz(h, m./EI);
 
     %calculate deflection along h
     delta = cumtrapz(h, theta);
@@ -662,7 +676,7 @@ function towerStress = calcTowerStress(h,r,turbine, param)
 
     %calculate moments as function of h (will need h, r, turbine,
     %parameters)
-    [~,m,~,~] = calcBendingAnalysis(h,r,turbine,param);
+    [~,~,m,~,~] = calcBendingAnalysis(h,r,turbine,param);
 
     %take only the moments along the tower
     mTower = m((h<=turbine.towerH));
@@ -672,7 +686,7 @@ function towerStress = calcTowerStress(h,r,turbine, param)
 
     I = calcI(hTower, turbine);
 
-    towerStress = mTower .* c ./ I;
+    towerStress = abs(mTower .* c ./ I);
 
 end
 
@@ -687,10 +701,10 @@ function [meanS, altS] = calcFatigueS(h,r,turbine,param)
     minStress = maxStress*cosd(param.primaryHeading-param.secondaryHeading);
 
     %calculate the mean stress
-    meanS = maxStress + minStress / 2;
+    meanS = (maxStress + minStress) / 2;
 
     %calculate the alternating stress
-    altS = abs(maxStress - meanS);
+    altS = abs(maxStress - meanS)/2;
 
 end
 
@@ -702,7 +716,7 @@ function fatigueSF = calcFatigueSF(h, r, turbine, param)
     [meanS, altS] = calcFatigueS(h, r, turbine, param);
 
     %calculate endurance strength of material
-    sigma_e = param.TS_steel*param.Cg*param.Cl*param.Cs*10^6;
+    sigma_e = 0.5*param.TS_steel*param.Cg*param.Cl*param.Cs*10^6;
 
     %retrieve tensile strength of material
     TS = param.TS_steel*10^6;
