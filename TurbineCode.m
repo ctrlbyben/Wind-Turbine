@@ -66,65 +66,6 @@ turbine.W = 14*2*pi/60;    % Rotational Speed [Rad/s] for first deliverable
 fprintf("Deliverable 1: \nThe Coefficient of Power is: %.4f \n"  + ...
     "The Coefficient of Thrust is: %.4f \n \n", Q1.C_p, Q1.C_t);
 
-
-% % % % % --- DELIVERABLE 1 PLOTS ------
-% % % % 
-% % % % % PLOT DATA GENERATION
-% % % % 
-% % % % %Calculate AoA, Relative wind Speed, relative wind angle. 
-% % % % [Q1.AoA, Q1.Urel, Q1.windRelAngle] = calcAoA(r, turbine);
-% % % % 
-% % % % %Calculate Section Twist Angle along blade
-% % % % Q1.twist = calcTwist(r, turbine);
-% % % % 
-% % % % %Calculate Cd, Cl along blade
-% % % % [Q1.Cd, Q1.Cl] = calcCoef(r, turbine, param);
-% % % % 
-% % % % %Calculate the Loads along blade
-% % % % [Q1.fTheta, Q1.fZ, Q1.Lift, Q1.Drag] = calcForces(r, turbine, param);
-% % % % 
-% % % % %Generate Plots:
-% % % % figure(1)
-% % % % % --- Subplot 1: Aerodynamic Coefficients ---
-% % % % subplot(3,1,1)
-% % % % hold on
-% % % % plot(r, Q1.Cl, 'b', 'LineWidth', 1.4)
-% % % % plot(r, Q1.Cd, 'g', 'LineWidth', 1.4)
-% % % % hold off
-% % % % xlabel('Distance from Center of Rotation [m]')
-% % % % ylabel('Coefficient Value')
-% % % % title('Aerodynamic Coefficients Along Blade Span')
-% % % % legend('C_L','C_D','Location','best')
-% % % % grid on
-% % % % 
-% % % % % --- Subplot 2: Angles ---
-% % % % subplot(3,1,2)
-% % % % hold on
-% % % % plot(r, Q1.windRelAngle, '-b', 'LineWidth', 1.4)
-% % % % plot(r, Q1.twist, '-r', 'LineWidth', 1.4)
-% % % % plot(r, Q1.AoA, '-g', 'LineWidth', 1.4)
-% % % % hold off
-% % % % xlabel('Distance from Center of Rotation [m]')
-% % % % ylabel('Angle [deg]')
-% % % % title('Flow Angles Along Blade Span')
-% % % % legend('\phi (flow angle)','\theta (twist)','\alpha (AoA)','Location','best')
-% % % % grid on
-% % % % 
-% % % % % --- Subplot 3: Forces ---
-% % % % subplot(3,1,3)
-% % % % hold on
-% % % % plot(r, Q1.Lift, '-b', 'LineWidth', 1.4)
-% % % % plot(r, Q1.Drag, '-r', 'LineWidth', 1.4)
-% % % % plot(r, Q1.fZ, '-g', 'LineWidth', 1.4)
-% % % % plot(r, Q1.fTheta, '-c', 'LineWidth', 1.4)
-% % % % hold off
-% % % % xlabel('Distance from Center of Rotation [m]')
-% % % % ylabel('Load [N/m]')
-% % % % title('Aerodynamic Loads Along Blade Span')
-% % % % legend('Lift','Drag','F_z','F_\Theta')
-% % % % grid on
-
-
 %% DELIVERABLE 2:
 
 %Team #24 Specific Parameters:
@@ -183,7 +124,7 @@ print(fig, 'Cp_Pitch.png', '-dpng', '-r300');
 
 %% DELIVERABLE 3:
 %Team 24 Specific Parameters for deliverable 4:
-Q3.U = 5; %wind speed, [m/s]
+Q3.U = 6.7; %wind speed, [m/s]
 
 %Update Turbine Struct:
 turbine.U = Q3.U;  
@@ -847,8 +788,6 @@ function [q,v,m,theta,delta] = calcBendingAnalysis(h, r, turbine, param)
     delta = cumtrapz(h, theta);
 
 end
-
-%-----------
 
 %% calcTowerStress
 function towerStress = calcTowerStress(h,r,turbine, param)
